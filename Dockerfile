@@ -3,7 +3,7 @@ FROM fuljo/spark-driver:3-java8
 # Application information
 ENV APP_NAME=mask-the-week
 ENV APP_DIR=/usr/src/${APP_NAME}
-ENV APP_MAIN_CLASS=com.fuljo.polimi.middleware.mask_the_week.WordCount
+ENV APP_MAIN_CLASS=com.fuljo.polimi.middleware.mask_the_week.MaskTheWeek
 ENV APP_ARGS=""
 
 # Install Maven
