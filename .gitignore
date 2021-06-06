@@ -77,4 +77,5 @@ fabric.properties
 target/
 
 # User files
+data/
 results/
