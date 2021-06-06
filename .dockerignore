@@ -13,3 +13,4 @@ Dockerfile
 
 # User files
 data/
+results/

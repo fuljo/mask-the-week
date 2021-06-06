@@ -21,6 +21,7 @@ services:
       - SPARK_MASTER_URL=spark://spark-master:7077
     volumes:
       - ./data:/opt/spark/work/data
+      - ./results:/opt/spark/work/results
       - events:/tmp/spark-events
   spark-history:
     image: fuljo/spark-base:3-java8
@@ -41,10 +42,11 @@ services:
       - spark-master
       - spark-worker
     environment:
-      - APP_ARGS=/opt/spark/work/data/in.txt
+      - APP_ARGS=/opt/spark/work/data/data.csv /opt/spark/work/results
       - SPARK_EVENTLOG_ENABLED=1
     volumes:
       - ./data:/opt/spark/work/data
+      - ./results:/opt/spark/work/results
       - events:/tmp/spark-events
 volumes:
   events: {}
