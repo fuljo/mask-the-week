@@ -48,20 +48,20 @@ public class MaskTheWeek {
         // Compute moving average
         df = df
                 .groupBy(col("country"), w)
-                .avg("cases");
+                .agg(sum("cases").divide(7).as("avg"));
 
         // ---------------------------------------------------------------------------------
         // Percentage increase of the average, w.r.t. the day before
         // ---------------------------------------------------------------------------------
         // WARNING: Spaghetti code ahead
         df = df
-                .withColumn("avg(cases)_lag",
-                        lag("avg(cases)", 1)
+                .withColumn("avg_lag",
+                        lag("avg", 1)
                                 .over(Window.partitionBy("country").orderBy("window.start")))
                 // increase[t] := (avg[t] - avg[t-1]) / avg[t-1] * 100
-                .withColumn("avg(cases)_increase",
-                        (col("avg(cases)").minus(col("avg(cases)_lag")))
-                                .divide(col("avg(cases)_lag"))
+                .withColumn("avg_increase",
+                        (col("avg").minus(col("avg_lag")))
+                                .divide(col("avg_lag"))
                                 .multiply(100.));
 
         df.cache();
@@ -71,8 +71,8 @@ public class MaskTheWeek {
                 col("window.start").cast(DataTypes.DateType).as("start_date"),
                 col("window.end").cast(DataTypes.DateType).as("end_date"),
                 col("country"),
-                col("avg(cases)"),
-                col("avg(cases)_increase")
+                col("avg"),
+                col("avg_increase")
         );
 
 
@@ -92,7 +92,7 @@ public class MaskTheWeek {
         // ----------------------------------------------------------------------------------------------------
         df = df
                 .withColumn("rank", rank()
-                        .over(Window.partitionBy("window.end").orderBy("avg(cases)_increase")))
+                        .over(Window.partitionBy("window.end").orderBy("avg_increase")))
                 .filter(col("rank").leq(10));
         // Select columns to export
         Dataset<Row> df_chart = df.select(
@@ -100,8 +100,8 @@ public class MaskTheWeek {
                 col("window.end").cast(DataTypes.DateType).as("end_date"),
                 col("country"),
                 col("rank"),
-                col("avg(cases)"),
-                col("avg(cases)_increase")
+                col("avg"),
+                col("avg_increase")
         );
 
         // Export to file
