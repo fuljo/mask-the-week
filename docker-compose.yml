@@ -42,7 +42,7 @@ services:
       - spark-master
       - spark-worker
     environment:
-      - APP_ARGS=/opt/spark/work/data/data.csv /opt/spark/work/results
+      - APP_ARGS=--results-dir=/opt/spark/work/results /opt/spark/work/data/data.csv
       - SPARK_EVENTLOG_ENABLED=1
     volumes:
       - ./data:/opt/spark/work/data
