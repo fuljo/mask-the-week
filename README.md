@@ -15,3 +15,20 @@ Analysis of Covid-19 data with Apache Spark
    ```
    docker compose up --build --scale spark-worker=<num_workers>
    ```
+
+4. Show the average and average increase for each period/country
+   ```
+   column -t -s, results/avg/*.csv
+   ```
+
+5. Show the countries with the highest average increase for each period
+   ```
+   column -t -s, results/rank/*.csv
+   ```
+
+## Monitoring the cluster
+After launching the computation with Docker, one can access:
+- the master UI at [localhost:8080](http://localhost:8080), to monitor the active jobs.
+- the history UI at [localhost:18080](http://localhost:18080), for a post-mortem analysis of the whole job and its tasks.
+
+NOTE: The worker UIs are not exposed, since the ports of the different replicas would clash.
