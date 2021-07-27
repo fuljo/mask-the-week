@@ -4,7 +4,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.types.StructType;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -80,8 +79,7 @@ public class MaskTheWeek implements Runnable {
                 break;
             }
             case MPI: {
-                /* TODO: Implement this */
-                df = null;
+                df = MPIDataLoader.read(spark, filePaths);
                 break;
             }
             default: {
