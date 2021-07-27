@@ -4,6 +4,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.StructType;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -117,7 +118,7 @@ public class MaskTheWeek implements Runnable {
                 .save(String.format("%s/rank", resultsDir));
 
         // End the session
-        spark.cloneSession();
+        spark.close();
     }
 
     /**
@@ -238,7 +239,7 @@ public class MaskTheWeek implements Runnable {
         // ----------------------------------------------------------------------------------------------------
         return df
                 .withColumn("rank", rank()
-                        .over(Window.partitionBy("end_date").orderBy("avg_increase")))
+                        .over(Window.partitionBy("end_date").orderBy(desc_nulls_last("avg_increase"))))
                 .filter(col("rank").leq(limit - 1));
     }
 
