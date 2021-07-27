@@ -1,8 +1,10 @@
 package com.fuljo.polimi.middleware.mask_the_week;
 
+import org.apache.spark.sql.DataFrameNaFunctions;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
@@ -87,16 +89,23 @@ public class MPIDataLoader {
 
     private static Dataset<Row> postProcess(Dataset<Row> df) {
         // We need to convert progressive days to date format,
-        // so we select a conventional start date
+        // so we select a conventional start date and sum to it
         Date startDate = Date.valueOf("1970-01-01");
+        df = df.withColumn("date",
+                date_add(lit(startDate), col("day")).as("date"));
+
+        // We need to convert from the number of total cases to the number of new cases
+        df = df.withColumn("infected_lag",
+                lag(col("infected"), 1)
+                        .over(Window.partitionBy("country").orderBy("date")))
+                .na().fill(0, new String[] {"infected_lag"})
+                .withColumn("cases",
+                        col("infected").minus(col("infected_lag")));
 
         // Select only relevant columns and rename them
         df = df.select(
-                // Add number of days to start date
-                date_add(lit(startDate), col("day")).as("date"),
-                // Rename
-                col("infected").as("cases"),
-                // Cast to string
+                col("date"),
+                col("cases"),
                 col("country").cast(DataTypes.StringType)
         );
         return df;
