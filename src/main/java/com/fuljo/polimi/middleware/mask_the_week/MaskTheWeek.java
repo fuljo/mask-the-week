@@ -53,7 +53,7 @@ public class MaskTheWeek implements Runnable {
         }
         // Load default configuration values
         SparkConf sc = new SparkConf()
-                .setAppName("MaskTheWek")
+                .setAppName("MaskTheWeek")
                 // If submitted to the cluster, the master is already set. Otherwise use the provided one
                 .setIfMissing("spark.master", master);
         // Set up the Spark Session
