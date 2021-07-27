@@ -99,7 +99,7 @@ public class MaskTheWeek implements Runnable {
                 .mode(SaveMode.Overwrite)
                 .format("csv")
                 .option("header", true)
-                .option("dateFormat", "d/M/y")
+                .option("dateFormat", "dd/MM/yyyy")
                 .save(String.format("%s/avg", resultsDir));
 
         // Compute rank of countries with highest daily increase of the avg weekly cases
@@ -112,7 +112,7 @@ public class MaskTheWeek implements Runnable {
                 .mode(SaveMode.Overwrite)
                 .format("csv")
                 .option("header", true)
-                .option("dateFormat", "d/M/y")
+                .option("dateFormat", "dd/MM/yyyy")
                 .save(String.format("%s/rank", resultsDir));
 
         // End the session
