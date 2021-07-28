@@ -1,3 +1,27 @@
 \section{Introduction}
 \label{sec:intro}
 
+We consider a dataset that reports the new daily COVID-19 cases for each country, worldwide.
+Our goal is to compute:
+\begin{enumerate}
+    \item The seven-days moving average of new cases, for each day and for each country
+    \item The percentage increase of the seven-days average w.r.t.\ the day before, for each day and for each country
+    \item The top-10 countries with the highest percentage increase, for each day
+\end{enumerate}
+
+\noindent
+If data is provided with a coarser grain (e.g.\ weekly), the increment is spread evenly between the week when computing the average.
+We implemented the solution with the \emph{Apache Spark SQL API}, since it provides:
+\begin{itemize}
+    \item an easy way to load CSV datasets as tables
+    \item built-in windowing functions to aggregate data based on time
+    \item efficient and transparent partitioning of the dataset between the worker nodes
+    \item a concise and easy-to-read API, that reduces the amount of code to write and makes it way clearer that what we would have come up with using MPI
+\end{itemize}
+
+\noindent
+We also considered using the Structured Streaming API, but ultimately we discarded it. This is our rationale:
+\begin{itemize}
+    \item The \emph{Structured Streaming API} is suitable for scenarios where the data has to be analyzed online, for example if we were to produce our reports during the pandemic with data coming in each day. In this case we could also use watermarking to wait for late data. However, this approach makes sense only if the data is actually generated periodically, otherwise the effort spent to simulate a periodic data source from file is totally unjustified.
+    \item The \emph{SQL API} is more indicated for offline analysis, where the whole dataset is already available before the computation. This is exactly our case, so we chose this approach.
+\end{itemize}
