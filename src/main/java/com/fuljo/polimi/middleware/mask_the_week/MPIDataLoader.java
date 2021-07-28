@@ -96,9 +96,8 @@ public class MPIDataLoader {
 
         // We need to convert from the number of total cases to the number of new cases
         df = df.withColumn("infected_lag",
-                lag(col("infected"), 1)
+                lag(col("infected"), 1, 0)
                         .over(Window.partitionBy("country").orderBy("date")))
-                .na().fill(0, new String[] {"infected_lag"})
                 .withColumn("cases",
                         col("infected").minus(col("infected_lag")));
 
