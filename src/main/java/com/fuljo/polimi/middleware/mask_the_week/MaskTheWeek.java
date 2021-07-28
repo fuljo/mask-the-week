@@ -287,7 +287,7 @@ public class MaskTheWeek implements Runnable {
     @Option(names = {"-S", "--slide-duration"}, paramLabel = "M", defaultValue = "1",
             description = "Slide window M days at a time (default: ${DEFAULT-VALUE})")
     public void setSlideDuration(Integer slideDuration) {
-        if (windowDuration <= 0) {
+        if (slideDuration <= 0) {
             throw new CommandLine.ParameterException(spec.commandLine(),
                     "Invalid value %s for option '--slide-duration': value should be non-negative");
         }
