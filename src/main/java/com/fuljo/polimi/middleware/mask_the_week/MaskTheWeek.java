@@ -236,7 +236,7 @@ public class MaskTheWeek implements Runnable {
         // Top 10 countries with the highest percentage increase of the seven days moving average, for each day
         // ----------------------------------------------------------------------------------------------------
         return df
-                .withColumn("rank", rank()
+                .withColumn("rank", dense_rank()
                         .over(Window.partitionBy("end_date").orderBy(desc_nulls_last("avg_increase"))))
                 .filter(col("rank").leq(limit - 1));
     }
