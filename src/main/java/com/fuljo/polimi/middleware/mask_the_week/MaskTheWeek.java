@@ -238,7 +238,7 @@ public class MaskTheWeek implements Runnable {
         return df
                 .withColumn("rank", dense_rank()
                         .over(Window.partitionBy("end_date").orderBy(desc_nulls_last("avg_increase"))))
-                .filter(col("rank").leq(limit - 1));
+                .filter(col("rank").leq(limit));
     }
 
     public static void main(String[] args) {
