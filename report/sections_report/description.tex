@@ -1,0 +1,266 @@
+\section{Solution description}
+\label{sec:description}
+
+\paragraph{Input preprocessing}
+Our program reads data from CSV files that can be provided in two formats. The first is the one used by the European Center for Disease Prevention in \href{https://www.ecdc.europa.eu/en/publications-data/download-todays-data-geographic-distribution-covid-19-cases-worldwide}{this dataset}, with the following schema:
+
+\begin{center}
+    \begin{tabu}{l c X}
+        \toprule
+        \rowfont{\sffamily\bfseries}
+        Column                  & Type    & Description                                                                             \\
+        \midrule
+        dateRep                 & Date    & Day when these results were collected                                                   \\
+        day                     & Integer & Day of the month                                                                        \\
+        month                   & Integer & Month of the year                                                                       \\
+        year                    & Integer & Year                                                                                    \\
+        cases                   & Integer & New cases since previous record for this country                                        \\
+        deaths                  & Integer & New deaths since previous record for this country                                       \\
+        countriesAndTerritories & String  & Full name of the country                                                                \\
+        geoId                   & String  & ISO 3166-1 2-letter country code                                                        \\
+        countryterritoryCode    & String  & ISO 3166-1 3-letter country code (nullable)                                             \\
+        popData2019             & Float   & Population of this country in 2019 (nullable)                                           \\
+        continentExp            & String  & Name of the continent (nullable)                                                        \\
+        cumulative\dots         & Float   & Cumulative number for 14 days of COVID-19 cases per \num{100000} inhabitants (nullable) \\
+        \bottomrule
+    \end{tabu}
+\end{center}
+
+\noindent
+For our purposes only \emph{dateRep}, \emph{cases} and \emph{countriesAndTerritories} are relevant.
+The second format is the one used by the virus spreading simulator \href{https://github.com/fuljo/my-population-infection}{My Population Infection} that we developed for project \#4, with the following schema:
+
+\begin{center}
+    \begin{tabu}{l c X}
+        \toprule
+        \rowfont{\sffamily\bfseries}
+        Column      & Type    & Description                                                \\
+        \midrule
+        day         & Integer & Progressive day of simulation (0, 1, \dots)                \\
+        country     & Integer & ID of the country                                          \\
+        susceptible & Integer & Current number of susceptible individuals for this country \\
+        infected    & Integer & Current number of infected individuals for this country    \\
+        immune      & Integer & Current number of immune individuals for this country      \\
+        \bottomrule
+    \end{tabu}
+\end{center}
+
+\noindent
+Here we discard the number of susceptible and immune. In order to compute a date from the progressive day we start counting from 1/1/1970. We also need to convert the total number of cases to a daily increment.
+We obtain a normalized format, from which we will start our analysis:
+
+\begin{center}
+    \begin{tabu}{l c X}
+        \toprule
+        \rowfont{\sffamily\bfseries}
+        Column  & Type    & Description                                      \\
+        \midrule
+        date    & Date    & Date this record refers to                       \\
+        cases   & Integer & New cases since previous record for this country \\
+        country & String  & Name of the country                              \\
+        \bottomrule
+    \end{tabu}
+\end{center}
+
+\pagebreak
+
+\paragraph{Computing the average}
+We aggregate the records according to the country and a sliding window with duration $W = \SI{7}{days}$ and slide $S = \SI{1}{day}$.
+For each <country,~period> aggregation we compute the average number of cases as
+\[
+    avg = \frac{sum(cases)}{W / S}
+\]
+In this way weekly data is spread evenly between the days of the week.
+
+\begin{center}
+    \small
+    \begin{tikzpicture}[
+        win1/.style={nodes={fill=blue!16}},
+        win2/.style={nodes={fill=red!16}},
+        win1+2/.style={nodes={fill=blue!50!red!16}},
+        ]
+
+        \matrix[
+            table,
+            column 1/.style={nodes={minimum width=4.5em}},
+            column 2/.style={nodes={minimum width=5.5em}},
+            column 3/.style={nodes={minimum width=4.0em}},
+            row 1/.style={head},
+            row 2/.style={win1},
+            row 3/.style={win1+2},
+            row 4/.style={win1+2},
+            row 5/.style={win1+2},
+            row 6/.style={win1+2},
+            row 7/.style={win1+2},
+            row 8/.style={win1+2},
+            row 9/.style={win2},
+        ] (df1) {
+            country & date     & cases \\
+            A       & 1/1/2020 & 1     \\
+            A       & 2/1/2020 & 2     \\
+            A       & 3/1/2020 & 3     \\
+            A       & 4/1/2020 & 4     \\
+            A       & 5/1/2020 & 5     \\
+            A       & 6/1/2020 & 6     \\
+            A       & 7/1/2020 & 7     \\
+            A       & 8/1/2020 & 8     \\
+        };
+
+        \matrix[
+            table,
+            right=of df1,
+            column 1/.style={nodes={minimum width=5.5em}},
+            column 2/.style={nodes={minimum width=5.5em}},
+            column 3/.style={nodes={minimum width=4.5em}},
+            column 4/.style={nodes={minimum width=4.0em}},
+            row 1/.style={head},
+            row 2/.style={win1},
+            row 5/.style={win2},
+        ] (df2) {
+            start date & end date & country & avg   \\
+            1/1/2020   & 8/1/2020 & A       & 4     \\
+            1/1/2020   & 8/1/2020 & B       & \dots \\
+            1/1/2020   & 8/1/2020 & \dots   & \dots \\
+            2/1/2020   & 9/1/2020 & A       & 5     \\
+            2/1/2020   & 9/1/2020 & \dots   & \dots \\
+        };
+
+        \draw[draw=blue, decorate, decoration={brace, amplitude=.5em, raise=.5em}]%
+        (df1-2-3.north east) -- coordinate [right=1.0em] (b1) (df1-8-3.south east);
+        \draw[draw=red, decorate, decoration={brace, amplitude=.5em, raise=1em}]%
+        (df1-3-3.north east) -- coordinate [right=1.5em] (b2) (df1-9-3.south east);
+
+        \draw[draw=blue, -stealth] (b1) -- (df2-2-1.west);
+        \draw[draw=red, -stealth] (b2) -- (df2-5-1.west);
+    \end{tikzpicture}
+\end{center}
+
+\paragraph{Computing the percentage increment}
+We then partition the data by country, and for each partition we compute the increment as
+\[
+    avg~increase = \frac{avg_i - avg_{i-1}}{avg_{i-1}} \, 100
+\]
+where $avg_i$ indicates the average for period $i$. To have $avg_{i-1}$ at hand in Spark, we can shift the $avg$ column one step forward with the \href{https://spark.apache.org/docs/latest/sql-ref-functions-builtin.html#window-functions}{$lag(\cdot, 1)$} operator.
+
+\begin{center}
+    \small
+    \begin{tikzpicture}[
+            win1/.style={nodes={fill=blue!16}},
+            win2/.style={nodes={fill=red!16}},
+        ]
+        \matrix[
+            table,
+            column 1/.style={nodes={minimum width=5.50em}},
+            column 2/.style={nodes={minimum width=5.50em}},
+            column 3/.style={nodes={minimum width=4.50em}},
+            column 4/.style={nodes={minimum width=4.00em}},
+            column 5/.style={nodes={minimum width=4.25em}},
+            row 1/.style={head},
+            row 2/.style={win1},
+            row 3/.style={win1},
+            row 4/.style={win1},
+            row 5/.style={win2},
+            row 6/.style={win2},
+            row 7/.style={win2},
+        ] (df3) {
+            start date & end date  & country & avg & avg lag      \\
+            1/1/2020   & 8/1/2020  & A       & 4   & $\downarrow$ \\
+            2/1/2020   & 9/1/2020  & A       & 5   & 4            \\
+            3/1/2020   & 10/1/2020 & A       & 8   & 5            \\
+            1/1/2020   & 8/1/2020  & B       & 6   & $\downarrow$ \\
+            2/1/2020   & 9/1/2020  & B       & 1   & 6            \\
+            3/1/2020   & 10/1/2020 & B       & 3   & 1            \\
+        };
+        \matrix[
+            table,
+            right=of df3,
+            column 1/.style={nodes={minimum width=6.5em, fill=green!16}},
+            row 1/.style={head},
+            row 2/.style={win1},
+            row 3/.style={win1},
+            row 4/.style={win1},
+            row 5/.style={win2},
+            row 6/.style={win2},
+            row 7/.style={win2},
+        ] (df4) {
+            avg increase \\
+            $null$       \\
+            0.25         \\
+            0.60         \\
+            $null$       \\
+            -0.83        \\
+            2            \\
+        };
+
+        \draw[-stealth] (df3.east) -- (df4.west);
+    \end{tikzpicture}
+\end{center}
+\paragraph{Writing the \emph{avg} DataFrame}
+Once we have computed both $avg$ and $avg~increase$, we cache the DataFrame above for further computation, we reduce it to a single partition by using $coalesce(1)$, and we write it to a CSV file; this is the first part of our results.
+
+
+\paragraph{Computing the rank}
+We partition the data by period, and within each period we order the records by $avg~increase$.
+We write the $rank$ (i.e.\ the position) of each ordered record in a separate column, so we don't lose it if the records are reordered.
+We use the \href{https://spark.apache.org/docs/latest/sql-ref-functions-builtin.html#window-functions}{$dense~rank()$} function, so countries with the same increment will get a different rank.
+Finally, we only keep the first $L = 10$ records for each period, i.e.\ the top countries according to the percentage increment.
+
+\begin{center}
+    \small
+    \begin{tikzpicture}[
+            win1/.style={nodes={fill=blue!16}},
+            win2/.style={nodes={fill=red!16}},
+        ]
+
+        \matrix[
+            table,
+            column 1/.style={nodes={minimum width=5.5em}},
+            column 2/.style={nodes={minimum width=5.5em}},
+            column 3/.style={nodes={minimum width=4.5em}},
+            column 4/.style={nodes={minimum width=4.0em}},
+            column 5/.style={nodes={minimum width=6.5em}},
+            row 1/.style={head},
+            row 2/.style={win1},
+            row 3/.style={win1},
+            row 4/.style={win1},
+            row 5/.style={win2},
+            row 6/.style={win2},
+            row 7/.style={win2},
+        ] (df5) {
+            start date & end date & country & avg   & avg increase \\
+            1/1/2020   & 8/1/2020 & A       & \dots & 10           \\
+            1/1/2020   & 8/1/2020 & B       & \dots & -2           \\
+            1/1/2020   & 8/1/2020 & C       & \dots & 6            \\
+            2/1/2020   & 9/1/2020 & A       & \dots & 5            \\
+            2/1/2020   & 9/1/2020 & B       & \dots & 16           \\
+            2/1/2020   & 9/1/2020 & C       & \dots & 5            \\
+        };
+
+        \matrix[
+            table,
+            right=of df5,
+            column 1/.style={nodes={minimum width=4.5em}},
+            row 1/.style={head},
+            row 2/.style={win1},
+            row 3/.style={win1},
+            row 4/.style={win1},
+            row 5/.style={win2},
+            row 6/.style={win2},
+            row 7/.style={win2},
+        ] (df6) {
+            rank \\
+            1    \\
+            3    \\
+            2    \\
+            2    \\
+            1    \\
+            3    \\
+        };
+
+        \draw[-stealth] (df5.east) -- (df6.west);
+    \end{tikzpicture}
+\end{center}
+
+\paragraph{Writing the \emph{rank} DataFrame}
+Finally, we are ready to also write the DataFrame above in a separate file.
+As before, we coalesce it to a single partition before writing, otherwise we would produce multiple files, which we would have to merge manually.

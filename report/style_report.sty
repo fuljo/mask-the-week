@@ -12,7 +12,7 @@
 \RequirePackage{pgfplots}
 \pgfplotsset{compat=1.17}
 \RequirePackage{tikz}
-\usetikzlibrary{positioning, arrows.meta, matrix, patterns}
+\usetikzlibrary{positioning, arrows.meta, matrix, patterns, decorations}
 \RequirePackage{todonotes}
 \RequirePackage{listings}
 \RequirePackage[ruled,vlined]{algorithm2e}
@@ -122,6 +122,19 @@
 %------------------------------------------------
 %	Tikz settings
 %------------------------------------------------
+\tikzset{
+  table/.style={
+        matrix of nodes,
+        nodes={
+            % draw,
+            anchor=center, align=center,
+            minimum height=1.75em,
+            text height=1em, text depth=.5em,
+        },
+        row sep=-\pgflinewidth, column sep=-\pgflinewidth
+    },
+    head/.style={nodes={text=white, fill=black}},
+}
 
 %------------------------------------------------
 %	Custom colors
