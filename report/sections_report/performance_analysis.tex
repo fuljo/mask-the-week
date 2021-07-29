@@ -1,0 +1,94 @@
+\section{Performance analysis}
+\label{sec:performance_analysis}
+
+In this section we analyze how the \emph{execution time} varies with respect to the number of records $N$ and the number of workers $W$.
+
+\paragraph{Varying the number of records}
+The ECDC dataset offers records over \SI{350}{days}, so we extracted 7 sub-datasets with the records for the first $50, 100, 150, \dots, 350$ dates.
+Then we ran the computation over each of such datasets, collecting the execution time from the history server.
+The computation has been run inside the Docker cluster we provide here, with a single worker and on a single physical machine.
+
+The results, visible in figure~\ref{fig:profile_num_records}, show that there is only a slight increase in the execution time w.r.t. the number of records.
+The figure shows the execution times for job 0, which calculates the average and percentage increment, job 1, which calculates the rank, and the total time, that also includes the startup and shutdown of the driver application.
+
+\begin{figure}[p]
+    \begin{subfigure}[c]{.6\textwidth}
+        \begin{tikzpicture}
+            \begin{axis}[
+                    xlabel=Number of records,
+                    ylabel=Execution time (seconds),
+                    ymax=100,
+                    legend pos=north east,
+                ]
+                \addplot[blue]
+                table[x=n_records, y=job0_time, col sep=comma]
+                    {tables/profile_num_records.csv};
+                \addplot[red]
+                table[x=n_records, y=job1_time, col sep=comma]
+                    {tables/profile_num_records.csv};
+                \addplot[black]
+                table[x=n_records, y=total_time, col sep=comma]
+                    {tables/profile_num_records.csv};
+                \legend{job 0, job 1, total}
+            \end{axis}
+        \end{tikzpicture}
+    \end{subfigure}
+    ~
+    \begin{subfigure}[c]{.35\textwidth}
+        \csvreader[
+            tabular=c c c c,
+            table head=\toprule records & job 0 & job 1 & total \\ \midrule,
+            table foot=\bottomrule]%
+        {tables/profile_num_records.csv}%
+        {n_records=\records, total_time=\t, job0_time=\p, job1_time=\q}%
+        {\num{\records} & \SI{\p}{s} & \SI{\q}{s} & \SI{\t}{s}}
+    \end{subfigure}
+    \caption{Execution time when increasing the number of records}
+    \label{fig:profile_num_records}
+\end{figure}
+
+
+\paragraph{Varying the number of records}
+This second experiment has been carried out similarly to the first one. This time we considered the full ECDC dataset, and we varied the number of workers from 1 to 5.
+
+The results in figure~\ref{fig:profile_num_workers} are somewhat counterintuitive, as we would expect a decrease in the computation time when increasing the number of workers. The increment may be due to two reasons:
+\begin{enumerate}
+    \item Horizontal scaling is not a panacea — the benefits of parallel execution may not be worth the cost of scheduling and network communication.
+    \item All the workers run on a single physical machine — the available resources are always the same, what increases is the cost of virtualization and context switching.
+\end{enumerate}
+
+\begin{figure}[p]
+    \begin{subfigure}[c]{.6\textwidth}
+        \begin{tikzpicture}
+            \begin{axis}[
+                    xlabel=Number of workers,
+                    ylabel=Execution time (seconds),
+                    ymax=100,
+                    legend pos=north west,
+                ]
+                \addplot[blue]
+                table[x=n_workers, y=job0_time, col sep=comma]
+                    {tables/profile_num_workers.csv};
+                \addplot[red]
+                table[x=n_workers, y=job1_time, col sep=comma]
+                    {tables/profile_num_workers.csv};
+                \addplot[black]
+                table[x=n_workers, y=total_time, col sep=comma]
+                    {tables/profile_num_workers.csv};
+                \legend{job 0, job 1, total}
+            \end{axis}
+        \end{tikzpicture}
+    \end{subfigure}
+    ~
+    \begin{subfigure}[c]{.35\textwidth}
+        \csvreader[
+            tabular=c c c c,
+            table head=\toprule workers & job 0 & job 1 & total \\ \midrule,
+            table foot=\bottomrule]%
+        {tables/profile_num_workers.csv}%
+        {n_workers=\workers, total_time=\t, job0_time=\p, job1_time=\q}%
+        {\num{\workers} & \SI{\p}{s} & \SI{\q}{s} & \SI{\t}{s}}
+    \end{subfigure}
+    \caption{Execution time when increasing the number of workers}
+    \label{fig:profile_num_workers}
+\end{figure}
