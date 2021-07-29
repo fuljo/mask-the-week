@@ -66,7 +66,7 @@ We obtain a normalized format, from which we will start our analysis:
 
 \paragraph{Computing the average}
 We aggregate the records according to the country and a sliding window with duration $W = \SI{7}{days}$ and slide $S = \SI{1}{day}$.
-For each <country,~period> aggregation we compute the average number of cases as
+For each $\langle country, period\rangle$ aggregation we compute the average number of cases as
 \[
     avg = \frac{sum(cases)}{W / S}
 \]

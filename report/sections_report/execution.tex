@@ -1,0 +1,119 @@
+\section{Execution}
+\label{sec:execution}
+
+In this section we take an introspective look at the execution of the queries.
+We do this to check if the system is able to perform an efficient computation, or if we can further optimize the queries by changing some code.
+Let's start by looking at the physical plan, obtained by calling \texttt{DataSet.explain()}.
+
+\subsection{Physical plan}
+
+The first three operations just take care of the loading and preprocessing of the data — in this case we are using the ECDC format.
+
+\begin{lstlisting}[style=sparkplan]
+(1) Scan csv 
+Output [3]: [dateRep#0, cases#4, countriesAndTerritories#6]
+Batched: false
+Location: InMemoryFileIndex [file:data\data.csv]
+PushedFilters: [IsNotNull(dateRep)]
+ReadSchema: struct<dateRep:date,cases:int,countriesAndTerritories:string>
+
+(2) Filter [codegen id : 1]
+Input [3]: [dateRep#0, cases#4, countriesAndTerritories#6]
+Condition : isnotnull(dateRep#0)
+
+(3) Project [codegen id : 1]
+Input [3]: [dateRep#0, cases#4, countriesAndTerritories#6]
+Output [3]: [dateRep#0 AS date#24, cases#4, countriesAndTerritories#6 AS country#25]
+\end{lstlisting}
+
+\noindent
+Then operations~(4) to~(9) create the sliding window using \texttt{Expand}, and produce the average for each window using HashAggregate. We also note that to compute the aggregation function an \texttt{Exchange} (i.e.\ a shuffle operation) has to be performed, to partition the dataset by $\langle country, window\rangle$.
+
+\begin{lstlisting}[style=sparkplan]
+(4) Expand [codegen id : 1]
+Input [3]: [date#24, cases#4, country#25]
+Arguments: [...], [window#35, date#24, cases#4, country#25]
+
+(5) Filter [codegen id : 1]
+Input [4]: [window#35, date#24, cases#4, country#25]
+Condition : ((isnotnull(window#35) AND (cast(date#24 as timestamp) >= window#35.start)) AND (cast(date#24 as timestamp) < window#35.end))
+
+(6) Project [codegen id : 1]
+Input [4]: [window#35, date#24, cases#4, country#25]
+Output [3]: [window#35, cases#4, country#25]
+
+(7) HashAggregate [codegen id : 1]
+Input [3]: [window#35, cases#4, country#25]
+Keys [2]: [country#25, window#35]
+Functions [1]: [partial_sum(cast(cases#4 as bigint))]
+Aggregate Attributes [1]: [sum#65L]
+Results [3]: [country#25, window#35, sum#66L]
+
+(8) Exchange
+Input [3]: [country#25, window#35, sum#66L]
+Arguments: hashpartitioning(country#25, window#35, 200), ENSURE_REQUIREMENTS, [id=#49]
+
+(9) HashAggregate [codegen id : 2]
+Input [3]: [country#25, window#35, sum#66L]
+Keys [2]: [country#25, window#35]
+Functions [1]: [sum(cast(cases#4 as bigint))]
+Aggregate Attributes [1]: [sum(cast(cases#4 as bigint))#33L]
+Results [4]: [cast(window#35.start as date) AS start_date#39, cast(window#35.end as date) AS end_date#40, country#25, (cast(sum(cast(cases#4 as bigint))#33L as double) / 7.0) AS avg#34]
+\end{lstlisting}
+
+\noindent
+The next set of operations compute the percentage increase.
+Now the data must be partitioned by country, hence the \texttt{Exchange} operation.
+However, this second \texttt{Exchange} is undesirable as moving data between nodes is very costly. In our opinion, it could be avoided by partitioning only by $country$ at~(8), since in theory the \texttt{HashAggregate} at~(9) requires data to be partitioned by at least one attribute in the key.
+
+We tried to partition the dataset by $country$ before grouping it by $\langle country, window\rangle$, which introduces an \texttt{Exchange} before~(4), but doesn't remove any of the subsequent ones. We suspect that the partitioning information is not propagated correctly, or Spark is unable to perform such a fine-grained optimization.
+
+\begin{lstlisting}[style=sparkplan]
+(10) Exchange
+Input [4]: [start_date#39, end_date#40, country#25, avg#34]
+Arguments: hashpartitioning(country#25, 200), ENSURE_REQUIREMENTS, [id=#53]
+
+(11) Sort [codegen id : 3]
+Input [4]: [start_date#39, end_date#40, country#25, avg#34]
+Arguments: [country#25 ASC NULLS FIRST, end_date#40 ASC NULLS FIRST], false, 0
+
+(12) Window
+Input [4]: [start_date#39, end_date#40, country#25, avg#34]
+Arguments: [lag(avg#34, -1, null) windowspecdefinition(country#25, end_date#40 ASC NULLS FIRST, specifiedwindowframe(RowFrame, -1, -1)) AS avg_lag#47], [country#25], [end_date#40 ASC NULLS FIRST]
+
+(13) Project [codegen id : 4]
+Input [5]: [start_date#39, end_date#40, country#25, avg#34, avg_lag#47]
+Output [5]: [start_date#39, end_date#40, country#25, avg#34, (((avg#34 - avg_lag#47) / avg_lag#47) * 100.0) AS avg_increase#53]
+
+(14) InMemoryRelation
+Arguments: [start_date#39, end_date#40, country#25, avg#34, avg_increase#53], CachedRDDBuilder(...,StorageLevel(disk, memory, deserialized, 1 replicas)]
+\end{lstlisting}
+
+\pagebreak\noindent
+Now we intentionally leave out the part related to coalescing the partitions and saving to file, and we turn to the computation of the rank.
+As made clear by~(15) the data being used is the one cached at~(14).
+
+The records are re-partitioned according to the period (either $start~date$ or $end~date$ can be used as key), they are sorted by $avg~increase$, the rank is computed and finally cut to 10.
+Note that the \texttt{Exchange} operation at~(16) is unavoidable, since the previous partitioning was by $country$.
+
+\begin{lstlisting}[style=sparkplan]
+(15) InMemoryTableScan
+Output [5]: [start_date#39, end_date#40, country#25, avg#34, avg_increase#53]
+Arguments: [start_date#39, end_date#40, country#25, avg#34, avg_increase#53]
+
+(16) Exchange
+Input [5]: [start_date#39, end_date#40, country#25, avg#34, avg_increase#53]
+Arguments: hashpartitioning(end_date#40, 200), ENSURE_REQUIREMENTS, [id=#83]
+
+(17) Sort [codegen id : 1]
+Input [5]: [start_date#39, end_date#40, country#25, avg#34, avg_increase#53]
+Arguments: [end_date#40 ASC NULLS FIRST, avg_increase#53 DESC NULLS LAST], false, 0
+
+(18) Window
+Input [5]: [start_date#39, end_date#40, country#25, avg#34, avg_increase#53]
+Arguments: [dense_rank(avg_increase#53) windowspecdefinition(end_date#40, avg_increase#53 DESC NULLS LAST, specifiedwindowframe(RowFrame, unboundedpreceding$(), currentrow$())) AS rank#202], [end_date#40], [avg_increase#53 DESC NULLS LAST]
+
+(19) Filter [codegen id : 2]
+Input [6]: [start_date#39, end_date#40, country#25, avg#34, avg_increase#53, rank#202]
+Condition : (isnotnull(rank#202) AND (rank#202 <= 10))
+\end{lstlisting}
