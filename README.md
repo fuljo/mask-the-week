@@ -10,7 +10,7 @@ Our goal is to compute:
 
 If data is provided with a coarser grain (e.g. weekly), the increment is spread evenly between the week when computing the average.
 
-Read the [project report](/releases/latest/download/mtw_report) for more detailed information.
+Read the [project report](https://github.com/fuljo/mask-the-week/releases/latest/download/mtw_report.pdf) for more detailed information.
 
 ## Getting started
 1. Download the daily cases report from the *European Centre for Disease Prevention and Control* (ECDC):
@@ -71,7 +71,7 @@ After launching the computation with Docker, one can access:
 NOTE: The worker UIs are not exposed, since the ports of the different replicas would clash.
 
 ## Report
-A PDF project report describing the program, its design principles, an execution analysis and performance analysis can be downloaded [here](/releases/latest/download/mtw_report.pdf).
+A PDF project report describing the program, its design principles, an execution analysis and performance analysis can be downloaded [here](https://github.com/fuljo/mask-the-week/releases/latest/download/mtw_report.pdf).
 Alternatively it can be locally compiled with XeLaTeX:
 ```
 cd report
